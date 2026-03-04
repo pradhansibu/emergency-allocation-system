@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cloud-Based Emergency Allocation</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        #map { height: 550px; width: 100%; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .sidebar { height: 550px; overflow-y: auto; background: white; padding: 15px; border-radius: 15px; }
+        .navbar { background-color: #dc3545 !important; margin-bottom: 20px; }
+        .stat-val { font-weight: bold; color: #dc3545; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark shadow">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🚑 Emergency Allocation Center (Chandigarh)</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-9">
+                <div id="map"></div>
+            </div>
+            <div class="col-md-3">
+                <div class="sidebar shadow-sm">
+                    <div id="status" class="alert alert-success text-center fw-bold">SYSTEM ONLINE</div>
+                    
+                    <div class="card mb-3 shadow-sm border-danger">
+                        <div class="card-body">
+                            <h6 class="card-title text-danger">Real-Time Metrics</h6>
+                            <hr>
+                            <p class="small mb-1">Assigned: <span id="res-name" class="stat-val">None</span></p>
+                            <p class="small mb-1">Distance: <span id="res-dist" class="stat-val">0</span> km</p>
+                            <p class="small">ETA: <span id="res-time" class="stat-val">0</span> mins</p>
+                        </div>
+                    </div>
+
+                    <h6>Resources (10)</h6>
+                    <ul id="resource-list" class="list-group list-group-flush small"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        var socket = io();
+        var map = L.map('map').setView([30.7333, 76.7794], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Map setup and markers for resources
+        var ambulances = [
+            {name: "Amb-Sec 17", lat: 30.7421, lon: 76.7827}, {name: "Amb-Sec 35", lat: 30.7231, lon: 76.7588},
+            {name: "Amb-PGI", lat: 30.7651, lon: 76.7744}, {name: "Amb-IT Park", lat: 30.7180, lon: 76.8120},
+            {name: "Amb-Manimajra", lat: 30.7142, lon: 76.8440}, {name: "Amb-Sec 43", lat: 30.7130, lon: 76.7400},
+            {name: "Amb-Sec 22", lat: 30.7380, lon: 76.7700}, {name: "Amb-Sec 15", lat: 30.7550, lon: 76.7700},
+            {name: "Amb-Mohali Border", lat: 30.7050, lon: 76.7200}, {name: "Amb-Sec 10", lat: 30.7500, lon: 76.7900}
+        ];
+
+        ambulances.forEach(function(amb) {
+            L.circleMarker([amb.lat, amb.lon], {color: 'blue', radius: 6}).addTo(map).bindPopup(amb.name);
+            var li = document.createElement("li");
+            li.className = "list-group-item";
+            li.innerText = "🔵 " + amb.name;
+            document.getElementById("resource-list").appendChild(li);
+        });
+
+        map.on('click', function(e) {
+            socket.emit('new_emergency', {lat: e.latlng.lat, lon: e.latlng.lng});
+            L.marker([e.latlng.lat, e.latlng.lng]).addTo(map).bindPopup("🚨 Emergency").openPopup();
+        });
+
+        socket.on('assign_ambulance', function(data) {
+            document.getElementById('status').innerText = "RESOURCE DISPATCHED";
+            document.getElementById('status').className = "alert alert-danger text-center fw-bold";
+            
+            // Updating metrics on dashboard
+            document.getElementById('res-name').innerText = data.name;
+            document.getElementById('res-dist').innerText = data.distance;
+            document.getElementById('res-time').innerText = data.time;
+            
+            // Visual feedback on map
+            L.circleMarker([data.lat, data.lon], {color: 'green', radius: 10}).addTo(map).bindPopup("Moving: " + data.name).openPopup();
+        });
+    </script>
+</body>
+</html>
